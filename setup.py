@@ -12,7 +12,9 @@ setup(
     author='SUNSCRAPERS',
     description='Safe storage for django using AWS S3+CloudFront',
     long_description=description,
-    requires=[
-        'django_threadlocals',
-    ]
+    install_requires=[
+        'boto3>=1.4.4',
+        'cryptography>=1.7.2',
+        'django-threadlocals>=0.8',
+    ],
 )

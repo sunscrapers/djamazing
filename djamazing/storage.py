@@ -1,4 +1,6 @@
+import base64
 import datetime
+import hashlib
 import mimetypes
 
 import boto3
@@ -27,6 +29,40 @@ def check_signature(signature, filename, username):
     except BadSignature:
         return False
     return True
+
+
+class S3File(object):
+    def __init__(self, name, s3_object):
+        self.name = name
+        self.data = s3_object.get()
+
+    @property
+    def size(self):
+        return self.data['ContentLength']
+
+    @property
+    def file(self):
+        return self
+
+    @property
+    def open(self):
+        return self
+
+    def read(self, num_bytes=None):
+        return self.data['Body'].read(num_bytes)
+
+    def chunks(self, chunk_size=None):
+        while True:
+            chunk = self.read(chunk_size)
+            if chunk:
+                yield chunk
+            else:
+                return
+
+    def __iter__(self):
+        for chunk in self.chunks():
+            for line in chunk.split('\n'):
+                yield line
 
 
 
@@ -73,15 +109,22 @@ class DjamazingStorage(Storage):
         if mode != 'rb':
             raise ValueError('Unsupported mode')
         object_ = self.bucket.Object(filename)
+        return S3File(filename, object_)
         return object_.get()['Body']
 
     def _save(self, filename, content):
+        hash_ = hashlib.md5()
+        for chunk in content.chunks():
+            hash_.update(chunk)
+        md5 = base64.b64encode(hash_.digest()).decode('ascii')
+        content.seek(0)
         mime, _ = mimetypes.guess_type(filename)
         self.bucket.put_object(
             ACL='private',
             Body=content,
             Key=filename,
             ContentType=mime,
+            ContentMD5=md5,
         )
         return filename
 

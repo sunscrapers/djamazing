@@ -68,32 +68,37 @@ class S3File(object):
 
 class DjamazingStorage(Storage):
 
-    def __init__(self):
-        self.cloud_front_key = serialization.load_pem_private_key(
-            settings.DJAMAZING['CLOUDFRONT_KEY'],
-            password=None,
-            backend=default_backend(),
-        )
-        self.key_id = settings.DJAMAZING['CLOUDFRONT_KEY_ID']
+    def __init__(self, config=None):
+        config = config or settings.DJAMAZING
         self.view_base_url = '/djamazing'
-        self.cloud_front_base_url = settings.DJAMAZING['CLOUDFRONT_URL']
+        self.cloud_front_base_url = config['CLOUDFRONT_URL']
         self.bucket = boto3.resource(
             's3',
-            aws_access_key_id = settings.DJAMAZING['S3_KEY_ID'],
-            aws_secret_access_key = settings.DJAMAZING['S3_SECRET_KEY'],
+            aws_access_key_id = config['S3_KEY_ID'],
+            aws_secret_access_key = config['S3_SECRET_KEY'],
             config=Config(signature_version='s3v4')
-        ).Bucket(settings.DJAMAZING['S3_BUCKET'])
-        self.signer = CloudFrontSigner(self.key_id, self.rsa_signer)
+        ).Bucket(config['S3_BUCKET'])
+        self.protected = 'CLOUDFRONT_KEY_ID' in config
+        if self.protected:
+            self.key_id = config['CLOUDFRONT_KEY_ID']
+            self.cloud_front_key = serialization.load_pem_private_key(
+                config['CLOUDFRONT_KEY'],
+                password=None,
+                backend=default_backend(),
+            )
+            self.signer = CloudFrontSigner(self.key_id, self.rsa_signer)
 
     def url(self, filename):
-        user = get_current_user().get_username()
-        signature = get_signature(filename, user)
-        url = '{}/{}/?signature={}'.format(
-            self.view_base_url,
-            filename,
-            signature,
-        )
-        return url
+        if self.protected:
+            user = get_current_user().get_username()
+            signature = get_signature(filename, user)
+            return '{}/{}/?signature={}'.format(
+                self.view_base_url,
+                filename,
+                signature,
+            )
+        else:
+            return self.cloud_front_base_url + filename
 
     def delete(self, filename):
         self.bucket.delete_objects(Delete={'Objects':[{'Key': filename}]})
@@ -119,6 +124,8 @@ class DjamazingStorage(Storage):
         md5 = base64.b64encode(hash_.digest()).decode('ascii')
         content.seek(0)
         mime, _ = mimetypes.guess_type(filename)
+        mime = mime or 'application/octet-stream'
+        ACL = 'private' if self.protected else 'public-read'
         self.bucket.put_object(
             ACL='private',
             Body=content,

@@ -2,9 +2,24 @@
 Djamazing - a safe storage for AWS
 -----------------------------------------------
 
-Djamazing offers a way to use S3+Cloudfront as Django Storage. It has the
+Djamazing [d͡ʒəˈmeɪzɪŋ] offers a way to use S3+Cloudfront as Django Storage. It has the
 benefit over conventional storages, that it generates signed URLs, so only the
-user who was able to display the URL is also able to access it.
+user who was able to display the URL is also able to access it. Djamazing
+can work in two modes:
+
+    unprotected mode
+        In this mode the storage simply generates URL-s to cloudfront. The
+        cloudfront distribution should be publicly accessible. This can be used
+        for files that don't require special security.
+
+    protected mode
+        The URLs are signed in this model using the ``SECRET_KEY``. These
+        signatures are only valid for the current user. Please remember that
+        it is *up to the developer* to ensure that the signed URLs are created
+        only when the user that can access them is logged in (some kind of
+        per-row authorization should probably be in place).  After clicking
+        these a special view redirects the user to a signed cloudfront URL.
+        This URL is only valid for one second.
 
 AWS configuration
 -------------------------
@@ -13,7 +28,8 @@ AWS configuration
 2. Generate a keypair for the user that can access the bucket.
 3. Create a cloudfront distribution that has origin in the bucket and is
    restricted to signed URLs.
-4. Generate a cloudfront keypair that can be used in the distribution.
+4. (for protected mode) Generate a cloudfront keypair that can be used in
+    the distribution.
 
 Installation
 ------------------------
@@ -32,23 +48,32 @@ Installation
         'S3_SECRET_KEY': '...',
         'S3_BUCKET': '...',
     }
+
+   For unprotected mode omit the ``CLOUDFRONT_KEY`` and ``CLOUDFRONT_KEY_ID``
+   keys.
 4. Add threadlocals middleware
    ``'threadlocals.middleware.ThreadLocalMiddleware'`` to your ``MIDDLEWARE``
 5. Add djamazing URLs to ``urls.py``::
 
     url(r'^djamazing/', include(djamazing.urls)),
 
-How does it work?
----------------
+Using various configurations in one project
+-----------------------------
 
-Djamazing uses two kinds of signed URL-s. 
+If you want to use various configurations in one project (e.g. unprotected for
+static file and protected for uploads), you can use inheritance. Create a
+simple subclass of ``DjamazingStorage`` like::
 
-1. The "django URLs" are signed using the ``SECRET_KEY`` in django.  They are
-   signed for the currently logged in user.  It is *up to the developer* to
-   make sure that only users that are meant to see the file get the ``.url()``
-   method called when logged in.
-2. The CloudFront URLs are created when user tries to visit the generated URL
-   mentioned above. This URL is only valid for a second and it is a direct link
-   to the CloudFront service.
+    class StaticStorage(DjamazingStorage):
+        """Storage for static files"""
 
+        def __init__(self):
+            super(StaticStorage, self).__init__(settings.STATIC_DJAMAZING)
 
+now you can use it as your storage like::
+
+    STATICFILES_STORAGE = 'some.path.StaticStorage'
+    STATIC_DJAMAZING = { ... }
+
+and the ``STATIC_DJAMAZING`` configuration would override ``DJAMAZING``
+configuration for this storage.

@@ -80,9 +80,13 @@ class DjamazingStorage(Storage):
         ).Bucket(config['S3_BUCKET'])
         self.protected = 'CLOUDFRONT_KEY_ID' in config
         if self.protected:
+            cloud_front_key = config['CLOUDFRONT_KEY'].strip()
+            if not cloud_front_key.startswith('-----'):
+                with open(cloud_front_key, 'br') as f:
+                    cloud_front_key = f.read()
             self.key_id = config['CLOUDFRONT_KEY_ID']
             self.cloud_front_key = serialization.load_pem_private_key(
-                config['CLOUDFRONT_KEY'],
+                cloud_front_key,
                 password=None,
                 backend=default_backend(),
             )

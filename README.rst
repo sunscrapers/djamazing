@@ -51,6 +51,7 @@ Installation
 
    For unprotected mode omit the ``CLOUDFRONT_KEY`` and ``CLOUDFRONT_KEY_ID``
    keys.
+   The parameter ``CLOUDFRONT_KEY`` may be also given by file path.
 4. Add threadlocals middleware
    ``'threadlocals.middleware.ThreadLocalMiddleware'`` to your ``MIDDLEWARE``
 5. Add djamazing URLs to ``urls.py``::

@@ -12,6 +12,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import padding
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import Storage
 from django.core.signing import Signer, BadSignature
 from threadlocals.threadlocals import get_current_user 
@@ -19,9 +20,11 @@ from threadlocals.threadlocals import get_current_user
 
 SIGNER = Signer()
 
+
 def get_signature(filename, username):
     signature = SIGNER.sign(':'.join([filename, username]))
     return signature.rsplit(':', 1)[1]
+
 
 def check_signature(signature, filename, username):
     try:
@@ -65,7 +68,6 @@ class S3File(object):
                 yield line
 
 
-
 class DjamazingStorage(Storage):
 
     def __init__(self, config=None):
@@ -78,12 +80,12 @@ class DjamazingStorage(Storage):
             aws_secret_access_key = config['S3_SECRET_KEY'],
             config=Config(signature_version='s3v4')
         ).Bucket(config['S3_BUCKET'])
+        self._init_protected_mode(config)
+
+    def _init_protected_mode(self, config):
         self.protected = 'CLOUDFRONT_KEY_ID' in config
         if self.protected:
-            cloud_front_key = config['CLOUDFRONT_KEY'].strip()
-            if not cloud_front_key.startswith('-----'):
-                with open(cloud_front_key, 'br') as f:
-                    cloud_front_key = f.read()
+            cloud_front_key = self._get_cloud_front_key(config)
             self.key_id = config['CLOUDFRONT_KEY_ID']
             self.cloud_front_key = serialization.load_pem_private_key(
                 cloud_front_key,
@@ -91,6 +93,19 @@ class DjamazingStorage(Storage):
                 backend=default_backend(),
             )
             self.signer = CloudFrontSigner(self.key_id, self.rsa_signer)
+
+    def _get_cloud_front_key(self, config):
+        cloud_front_key = config.get('CLOUDFRONT_KEY')
+        cloud_front_key_file = config.get('CLOUDFRONT_KEY_FILE')
+        if not cloud_front_key and cloud_front_key_file:
+            with open(cloud_front_key_file, 'br') as f:
+                cloud_front_key = f.read()
+        if not cloud_front_key:
+            raise ImproperlyConfigured(
+                'Either of CLOUDFRONT_KEY'
+                ' or CLOUDFRONT_KEY_FILE should be configured'
+            )
+        return cloud_front_key
 
     def url(self, filename):
         if self.protected:
@@ -105,7 +120,7 @@ class DjamazingStorage(Storage):
             return self.cloud_front_base_url + filename
 
     def delete(self, filename):
-        self.bucket.delete_objects(Delete={'Objects':[{'Key': filename}]})
+        self.bucket.delete_objects(Delete={'Objects': [{'Key': filename}]})
 
     def exists(self, filename):
         try:
@@ -119,7 +134,6 @@ class DjamazingStorage(Storage):
             raise ValueError('Unsupported mode')
         object_ = self.bucket.Object(filename)
         return S3File(filename, object_)
-        return object_.get()['Body']
 
     def _save(self, filename, content):
         hash_ = hashlib.md5()
@@ -138,7 +152,6 @@ class DjamazingStorage(Storage):
             ContentMD5=md5,
         )
         return filename
-
 
     def rsa_signer(self, data):
         signer = self.cloud_front_key.signer(padding.PKCS1v15(), hashes.SHA1())

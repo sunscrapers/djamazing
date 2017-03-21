@@ -105,7 +105,7 @@ class DjamazingStorage(Storage):
                 'Either of CLOUDFRONT_KEY'
                 ' or CLOUDFRONT_KEY_FILE should be configured'
             )
-        return cloud_front_key
+        return cloud_front_key.strip()
 
     def url(self, filename):
         if self.protected:

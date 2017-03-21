@@ -143,9 +143,9 @@ class DjamazingStorage(Storage):
         content.seek(0)
         mime, _ = mimetypes.guess_type(filename)
         mime = mime or 'application/octet-stream'
-        ACL = 'private' if self.protected else 'public-read'
+        acl = 'private' if self.protected else 'public-read'
         self.bucket.put_object(
-            ACL='private',
+            ACL=acl,
             Body=content,
             Key=filename,
             ContentType=mime,

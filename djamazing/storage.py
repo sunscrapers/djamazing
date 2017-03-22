@@ -15,6 +15,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import Storage
 from django.core.signing import Signer, BadSignature
+from django.urls import reverse
 from threadlocals.threadlocals import get_current_user 
 
 
@@ -72,7 +73,6 @@ class DjamazingStorage(Storage):
 
     def __init__(self, config=None):
         config = config or settings.DJAMAZING
-        self.view_base_url = '/djamazing'
         self.cloud_front_base_url = config['CLOUDFRONT_URL']
         self.bucket = boto3.resource(
             's3',
@@ -109,13 +109,19 @@ class DjamazingStorage(Storage):
 
     def url(self, filename):
         if self.protected:
-            user = get_current_user().get_username()
-            signature = get_signature(filename, user)
-            return '{}/{}/?signature={}'.format(
-                self.view_base_url,
-                filename,
-                signature,
+            user = get_current_user()
+            if user is None:
+                raise ImproperlyConfigured(
+                    'Probably ThreadLocalMiddleware is'
+                    ' missing in your settings'
+                )
+            username = user.get_username()
+            signature = get_signature(filename, username)
+            url = reverse(
+                'djamazing:protected_file',
+                kwargs={'filename': filename},
             )
+            return '{}?signature={}'.format(url, signature)
         else:
             return self.cloud_front_base_url + filename
 
@@ -160,7 +166,7 @@ class DjamazingStorage(Storage):
 
     def cloud_front_url(self, filename):
         expiration_time = (
-            datetime.datetime.now() +
+            datetime.datetime.utcnow() +
             datetime.timedelta(seconds=1)
         )
         url = self.cloud_front_base_url + filename

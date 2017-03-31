@@ -6,7 +6,9 @@ from djamazing.storage import check_signature
 
 
 class FileView(View):
-    def __init__(self, storage=None):
+
+    def __init__(self, storage=None, **kwargs):
+        super(FileView, self).__init__(**kwargs)
         if storage is None:
             self.storage = get_storage_class()()
         else:

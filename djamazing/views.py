@@ -14,9 +14,11 @@ class FileView(View):
         else:
             self.storage = storage()
 
-    def get(self, request, filename):
+    def get(self, request):
         username = request.user.get_username()
+        filename = request.GET['filename']
         signature = request.GET['signature']
+
         if not check_signature(signature, filename, username):
             return HttpResponseForbidden()
         return HttpResponseRedirect(

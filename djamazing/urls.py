@@ -5,5 +5,5 @@ from djamazing.views import FileView
 app_name = 'djamazing'
 
 urlpatterns = [
-    url(r'^(?P<filename>[\w+\/\.]+)/', FileView.as_view(), name='protected_file')
+    url(r'', FileView.as_view(), name='protected_file'),
 ]

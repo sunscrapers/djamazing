@@ -20,5 +20,5 @@ from django.contrib import admin
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
-    url(r'^djamazing/', include(djamazing.urls)),
+    url(r'^djamazing/', include(djamazing.urls, namespace='djamazing')),
 ]

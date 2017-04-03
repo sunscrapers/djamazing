@@ -2,7 +2,6 @@ import base64
 import datetime
 import hashlib
 import mimetypes
-import urllib
 
 import boto3
 from botocore.signers import CloudFrontSigner
@@ -15,10 +14,10 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import Storage
 from django.core.signing import Signer, BadSignature
-from django.urls import reverse
 from threadlocals.threadlocals import get_current_user
 
 from djamazing.settings import DEFAULT_SETTINGS
+from djamazing.compat import reverse, urlencode
 
 
 SIGNER = Signer()
@@ -101,7 +100,7 @@ class DjamazingStorage(Storage):
         cloud_front_key = config.get('CLOUDFRONT_KEY')
         cloud_front_key_file = config.get('CLOUDFRONT_KEY_FILE')
         if not cloud_front_key and cloud_front_key_file:
-            with open(cloud_front_key_file, 'br') as f:
+            with open(cloud_front_key_file, 'rb') as f:
                 cloud_front_key = f.read()
         if not cloud_front_key:
             raise ImproperlyConfigured(
@@ -123,7 +122,7 @@ class DjamazingStorage(Storage):
             url = reverse(
                 'djamazing:protected_file',
             )
-            querystring = urllib.parse.urlencode({
+            querystring = urlencode({
                 'filename': filename,
                 'signature': signature,
             })

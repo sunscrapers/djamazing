@@ -1,7 +1,7 @@
 from django.http.response import HttpResponseForbidden, HttpResponseRedirect
-from django.views import View
 from django.core.files.storage import get_storage_class
 
+from djamazing.compat import View
 from djamazing.storage import check_signature
 
 

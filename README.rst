@@ -19,7 +19,7 @@ can work in two modes:
         only when the user that can access them is logged in (some kind of
         per-row authorization should probably be in place).  After clicking
         these a special view redirects the user to a signed cloudfront URL.
-        This URL is only valid for one second.
+        This URL is only valid for a very small amount of time.
 
 AWS configuration
 -------------------------
@@ -34,7 +34,15 @@ AWS configuration
 Installation
 ------------------------
 
-1. Install djamazing by pip.
+1. Install djamazing by pip::
+
+   $ pip install djamazing
+
+   NOTE: If you are using `djamazing` with Django 1.10 you need a yet
+   unpublished version of `django-threadlocals`::
+
+   $ pip install git+https://github.com/nebstrebor/django-threadlocals.git
+
 2. Set ``"djamazing.storage.DjamazingStorage"`` as your DEFAULT_FILE_STORAGE.
 3. Configure Djamazing::
    
@@ -47,12 +55,16 @@ Installation
         'S3_KEY_ID': '...',
         'S3_SECRET_KEY': '...',
         'S3_BUCKET': '...',
+        'SIGNATURE_TIMEOUT': datetime.timedelta(seconds=2),
     }
 
    For unprotected mode omit the ``CLOUDFRONT_KEY`` and ``CLOUDFRONT_KEY_ID``
    keys.
    If you want to store a cloudfornt key in the file ``CLOUDFRONT_KEY_FILE``
    parameter may be also used with file path.
+   Note that the `SIGNATURE_TIMEOUT` is the time that doesn't require any human
+   interaction, only the browser to handle the redirection. If unspecified - it
+   defaults to 1.5 second.
 4. Add threadlocals middleware
    ``'threadlocals.middleware.ThreadLocalMiddleware'`` to your ``MIDDLEWARE``
 5. Add djamazing URLs to ``urls.py``::

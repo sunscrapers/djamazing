@@ -2,6 +2,7 @@ import base64
 import datetime
 import hashlib
 import mimetypes
+import urllib
 
 import boto3
 from botocore.signers import CloudFrontSigner
@@ -10,13 +11,14 @@ from botocore.exceptions import ClientError
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import padding
-
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import Storage
 from django.core.signing import Signer, BadSignature
 from django.urls import reverse
-from threadlocals.threadlocals import get_current_user 
+from threadlocals.threadlocals import get_current_user
+
+from djamazing.settings import DEFAULT_SETTINGS
 
 
 SIGNER = Signer()
@@ -72,15 +74,16 @@ class S3File(object):
 class DjamazingStorage(Storage):
 
     def __init__(self, config=None):
-        config = config or settings.DJAMAZING
-        self.cloud_front_base_url = config['CLOUDFRONT_URL']
+        self.config = DEFAULT_SETTINGS
+        self.config.update(config or settings.DJAMAZING)
+        self.cloud_front_base_url = self.config['CLOUDFRONT_URL']
         self.bucket = boto3.resource(
             's3',
-            aws_access_key_id = config['S3_KEY_ID'],
-            aws_secret_access_key = config['S3_SECRET_KEY'],
+            aws_access_key_id=self.config['S3_KEY_ID'],
+            aws_secret_access_key=self.config['S3_SECRET_KEY'],
             config=Config(signature_version='s3v4')
-        ).Bucket(config['S3_BUCKET'])
-        self._init_protected_mode(config)
+        ).Bucket(self.config['S3_BUCKET'])
+        self._init_protected_mode(self.config)
 
     def _init_protected_mode(self, config):
         self.protected = 'CLOUDFRONT_KEY_ID' in config
@@ -119,9 +122,12 @@ class DjamazingStorage(Storage):
             signature = get_signature(filename, username)
             url = reverse(
                 'djamazing:protected_file',
-                kwargs={'filename': filename},
             )
-            return '{}?signature={}'.format(url, signature)
+            querystring = urllib.parse.urlencode({
+                'filename': filename,
+                'signature': signature,
+            })
+            return '{}?{}'.format(url, querystring)
         else:
             return self.cloud_front_base_url + filename
 
@@ -167,7 +173,7 @@ class DjamazingStorage(Storage):
     def cloud_front_url(self, filename):
         expiration_time = (
             datetime.datetime.utcnow() +
-            datetime.timedelta(seconds=1)
+            self.config['SIGNATURE_TIMEOUT']
         )
         url = self.cloud_front_base_url + filename
         return self.signer.generate_presigned_url(

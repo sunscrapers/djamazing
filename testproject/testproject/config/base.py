@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 
 import os
 
+import django
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -40,7 +42,7 @@ INSTALLED_APPS = [
     'testapp',
 ]
 
-MIDDLEWARE = [
+M = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -50,6 +52,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'threadlocals.middleware.ThreadLocalMiddleware',
 ]
+
+if django.VERSION >= (1, 10, 0):
+    MIDDLEWARE = M
+else:
+    MIDDLEWARE_CLASSES = M
 
 ROOT_URLCONF = 'testproject.urls'
 

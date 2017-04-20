@@ -147,6 +147,8 @@ class DjamazingStorage(Storage):
         return S3File(filename, object_)
 
     def _save(self, filename, content):
+        if filename.startswith('./'):  # S3 wouldn't get it
+            filename = filename[2:]
         hash_ = hashlib.md5()
         for chunk in content.chunks():
             hash_.update(chunk)

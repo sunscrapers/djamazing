@@ -72,7 +72,7 @@ Installation
     url(r'^djamazing/', include(djamazing.urls)),
 
 Using various configurations in one project
------------------------------
+---------------------------------------------
 
 If you want to use various configurations in one project (e.g. unprotected for
 static file and protected for uploads), you can use inheritance. Create a

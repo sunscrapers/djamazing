@@ -6,12 +6,14 @@ with open('README.rst') as f:
 
 setup(
     name="djamazing",
-    version='0.0.1',
+    version='0.0.2',
     packages=find_packages(),
     license='MIT',
     author='SUNSCRAPERS',
+    author_email='info@sunscrapers.com',
     description='Safe storage for django using AWS S3+CloudFront',
     long_description=description,
+    url='https://github.com/sunscrapers/djamazing',
     install_requires=[
         'boto3>=1.4.4',
         'cryptography>=1.7.2',

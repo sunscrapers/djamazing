@@ -50,7 +50,7 @@ M = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'threadlocals.middleware.ThreadLocalMiddleware',
+    'djamazing.compat.ThreadLocalMiddleware',
 ]
 
 if django.VERSION >= (1, 10, 0):

@@ -6,7 +6,7 @@ with open('README.rst') as f:
 
 setup(
     name="djamazing",
-    version='0.0.2',
+    version='0.0.3',
     packages=find_packages(),
     license='MIT',
     author='SUNSCRAPERS',

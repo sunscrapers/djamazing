@@ -53,6 +53,9 @@ class S3File(object):
     def open(self):
         return self
 
+    def seek(self, pos):
+        self.data['Body'].seek(pos)
+
     def read(self, num_bytes=None):
         return self.data['Body'].read(num_bytes)
 

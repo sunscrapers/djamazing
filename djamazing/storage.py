@@ -1,6 +1,7 @@
 import base64
 import datetime
 import hashlib
+import io
 import mimetypes
 
 import boto3
@@ -13,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import Storage
+from django.core.files.utils import FileProxyMixin
 from django.core.signing import Signer, BadSignature
 from threadlocals.threadlocals import get_current_user
 
@@ -36,25 +38,44 @@ def check_signature(signature, filename, username):
     return True
 
 
-class S3File(object):
-    def __init__(self, name, s3_object):
+class S3File(FileProxyMixin):
+
+    def __init__(self, name, mode, s3_object):
         self.name = name
-        self.data = s3_object.get()
+        self.s3_object = s3_object
+        self._mode = mode
+        self._file = None
+
+    def __iter__(self):
+        for chunk in self.chunks():
+            for line in chunk.split('\n'):
+                yield line
 
     @property
     def size(self):
-        return self.data['ContentLength']
+        return self.s3_object.content_length
 
-    @property
-    def file(self):
-        return self
+    def _get_file(self):
+        if self._file is None:
+            self._file = io.BytesIO()
+            self._file.write(self.s3_object.get()['Body'].read())
+            self._file.seek(0)
+        return self._file
 
-    @property
-    def open(self):
-        return self
+    def _set_file(self, value):
+        self._file = value
 
-    def read(self, num_bytes=None):
-        return self.data['Body'].read(num_bytes)
+    file = property(_get_file, _set_file)
+
+    def read(self, *args, **kwargs):
+        if 'r' not in self._mode:
+            raise AttributeError('File was not opened in read mode.')
+        return super(S3File, self).read(*args, **kwargs)
+
+    def close(self):
+        if self._file is not None:
+            self._file.close()
+            self._file = None
 
     def chunks(self, chunk_size=None):
         while True:
@@ -63,11 +84,6 @@ class S3File(object):
                 yield chunk
             else:
                 return
-
-    def __iter__(self):
-        for chunk in self.chunks():
-            for line in chunk.split('\n'):
-                yield line
 
 
 class DjamazingStorage(Storage):
@@ -144,7 +160,7 @@ class DjamazingStorage(Storage):
         if mode != 'rb':
             raise ValueError('Unsupported mode')
         object_ = self.bucket.Object(filename)
-        return S3File(filename, object_)
+        return S3File(filename, mode, object_)
 
     def _save(self, filename, content):
         if filename.startswith('./'):  # S3 wouldn't get it
